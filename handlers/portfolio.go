@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"art-guard-api/models"
+	"art-guard-api/services"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,16 @@ func (h *PortfolioHandler) GetPortfolio(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get portfolio"})
 		return
+	}
+
+	// Populate image URLs for each artwork
+	cfService := services.NewCloudflareImagesService()
+	for i := range portfolioItems {
+		portfolioItems[i].Artwork.ImageURL = cfService.GetImageURL(portfolioItems[i].Artwork.CloudflareImageID, "large") // Use large as default
+		portfolioItems[i].Artwork.ImageVariants.Thumbnail = cfService.GetImageURL(portfolioItems[i].Artwork.CloudflareImageID, "thumbnail")
+		portfolioItems[i].Artwork.ImageVariants.Medium = cfService.GetImageURL(portfolioItems[i].Artwork.CloudflareImageID, "medium")
+		portfolioItems[i].Artwork.ImageVariants.Large = cfService.GetImageURL(portfolioItems[i].Artwork.CloudflareImageID, "large")
+		portfolioItems[i].Artwork.ImageVariants.Original = cfService.GetImageURL(portfolioItems[i].Artwork.CloudflareImageID, "large") // Large is the "original" quality
 	}
 
 	c.JSON(http.StatusOK, gin.H{
