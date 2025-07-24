@@ -23,10 +23,11 @@ func main() {
 	db := config.ConnectDB()
 
 	// Auto-migrate the schema
-	db.AutoMigrate(&models.User{})
+	db.AutoMigrate(&models.User{}, &models.Artwork{}, &models.Portfolio{})
 
 	// Create handlers
 	authHandler := &handlers.AuthHandler{DB: db}
+	artworkHandler := &handlers.ArtworkHandler{DB: db}
 
 	// Create Gin router
 	router := gin.Default()
@@ -40,26 +41,38 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Rest of your routes...
+	// Health check
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
-	// Protected routes
-	protected := router.Group("/api")
-	protected.Use(middleware.AuthMiddleware())
-	{
-		protected.GET("/profile", func(c *gin.Context) {
-			userID := c.GetUint("user_id")
-			c.JSON(200, gin.H{"message": "Protected route", "user_id": userID})
-		})
-	}
-
-	// Auth routes
+	// Auth routes (public)
 	auth := router.Group("/auth")
 	{
 		auth.POST("/register", authHandler.Register)
 		auth.POST("/login", authHandler.Login)
+	}
+
+	// Protected API routes
+	api := router.Group("/api")
+	api.Use(middleware.AuthMiddleware())
+	{
+		// User profile
+		api.GET("/profile", func(c *gin.Context) {
+			userID := c.GetUint("user_id")
+			c.JSON(200, gin.H{"message": "Protected route", "user_id": userID})
+		})
+
+		// Artwork routes
+		artworks := api.Group("/artworks")
+		{
+			artworks.POST("/upload", artworkHandler.Upload)
+			artworks.GET("", artworkHandler.GetArtworks)
+			artworks.GET("/:id", artworkHandler.GetArtwork)
+			artworks.PUT("/:id", artworkHandler.UpdateArtwork)
+			artworks.DELETE("/:id", artworkHandler.DeleteArtwork)
+			artworks.GET("/:id/file", artworkHandler.ServeFile)
+		}
 	}
 
 	// Start server
