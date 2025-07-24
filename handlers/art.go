@@ -100,6 +100,13 @@ func (h *ArtworkHandler) Upload(c *gin.Context) {
 		return
 	}
 
+	// Populate image URLs for the response (so frontend gets them immediately)
+	artwork.ImageURL = cfService.GetImageURL(artwork.CloudflareImageID, "public")
+	artwork.ImageVariants.Thumbnail = cfService.GetImageURL(artwork.CloudflareImageID, "thumbnail")
+	artwork.ImageVariants.Medium = cfService.GetImageURL(artwork.CloudflareImageID, "medium")
+	artwork.ImageVariants.Large = cfService.GetImageURL(artwork.CloudflareImageID, "large")
+	artwork.ImageVariants.Original = cfService.GetImageURL(artwork.CloudflareImageID, "public")
+
 	c.JSON(http.StatusCreated, UploadResponse{
 		Message: "Artwork uploaded successfully",
 		Artwork: artwork,

@@ -22,10 +22,6 @@ func main() {
 	// Connect to database
 	db := config.ConnectDB()
 
-	// Force migration - drop and recreate artwork table with new schema
-	db.Migrator().DropTable(&models.Artwork{})
-	db.Migrator().DropTable(&models.Portfolio{}) // Drop this too since it references artworks
-
 	// Auto-migrate the schema with new fields
 	db.AutoMigrate(&models.User{}, &models.Artwork{}, &models.Portfolio{})
 
