@@ -54,12 +54,7 @@ func (s *CloudflareImagesService) UploadImage(file multipart.File, filename stri
 	if err != nil {
 		return nil, err
 	}
-	// Add metadata if provided
-	if metadata != nil {
-		for key, value := range metadata {
-			w.WriteField(key, value)
-		}
-	}
+
 	w.Close()
 	// Create request
 	url := fmt.Sprintf("%s/accounts/%s/images/v1", s.BaseURL, s.AccountID)

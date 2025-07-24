@@ -65,26 +65,20 @@ func (h *ArtworkHandler) Upload(c *gin.Context) {
 	tags := c.PostForm("tags")
 	aiProtection := c.PostForm("ai_protection") == "true"
 
-	// Prepare metadata for Cloudflare
-	metadata := map[string]string{
-		"title":   title,
-		"user_id": fmt.Sprintf("%d", userID),
-	}
-	if description != "" {
-		metadata["description"] = description
-	}
-
 	// Initialize Cloudflare service
 	cfService := services.NewCloudflareImagesService()
 
-	// Upload to Cloudflare
-	cfResp, err := cfService.UploadImage(file, header.Filename, metadata)
+	// Upload to Cloudflare with no metadata
+	cfResp, err := cfService.UploadImage(file, header.Filename, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload to Cloudflare: " + err.Error()})
 		return
 	}
 
-	// Create artwork record (you can add image dimensions later if needed)
+	// Determine format from extension
+	format := strings.ToUpper(strings.TrimPrefix(ext, "."))
+
+	// Create artwork record
 	artwork := models.Artwork{
 		UserID:              userID,
 		Title:               title,
@@ -92,7 +86,7 @@ func (h *ArtworkHandler) Upload(c *gin.Context) {
 		Filename:            header.Filename,
 		CloudflareImageID:   cfResp.Result.ID,
 		FileSize:            header.Size,
-		Format:              strings.ToUpper(strings.TrimPrefix(ext, ".")),
+		Format:              format,
 		Software:            software,
 		Tags:                tags,
 		CopyrightRegistered: true,
@@ -100,6 +94,7 @@ func (h *ArtworkHandler) Upload(c *gin.Context) {
 	}
 
 	if err := h.DB.Create(&artwork).Error; err != nil {
+		// Clean up Cloudflare image if database save fails
 		cfService.DeleteImage(cfResp.Result.ID)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save artwork"})
 		return
@@ -123,6 +118,16 @@ func (h *ArtworkHandler) GetArtworks(c *gin.Context) {
 	if err := h.DB.Where("user_id = ?", userID).Order("created_at DESC").Find(&artworks).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve artworks"})
 		return
+	}
+
+	// Populate image URLs for each artwork
+	cfService := services.NewCloudflareImagesService()
+	for i := range artworks {
+		artworks[i].ImageURL = cfService.GetImageURL(artworks[i].CloudflareImageID, "public")
+		artworks[i].ImageVariants.Thumbnail = cfService.GetImageURL(artworks[i].CloudflareImageID, "thumbnail")
+		artworks[i].ImageVariants.Medium = cfService.GetImageURL(artworks[i].CloudflareImageID, "medium")
+		artworks[i].ImageVariants.Large = cfService.GetImageURL(artworks[i].CloudflareImageID, "large")
+		artworks[i].ImageVariants.Original = cfService.GetImageURL(artworks[i].CloudflareImageID, "public")
 	}
 
 	c.JSON(http.StatusOK, gin.H{
