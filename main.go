@@ -28,6 +28,7 @@ func main() {
 	// Create handlers
 	authHandler := &handlers.AuthHandler{DB: db}
 	artworkHandler := &handlers.ArtworkHandler{DB: db}
+	portfolioHandler := &handlers.PortfolioHandler{DB: db}
 
 	// Create Gin router
 	router := gin.Default()
@@ -72,6 +73,12 @@ func main() {
 			artworks.PUT("/:id", artworkHandler.UpdateArtwork)
 			artworks.DELETE("/:id", artworkHandler.DeleteArtwork)
 			artworks.GET("/:id/file", artworkHandler.ServeFile)
+		}
+
+		portfolio := api.Group("/portfolio")
+		{
+			portfolio.GET("", portfolioHandler.GetPortfolio)
+			portfolio.POST("", portfolioHandler.AddToPortfolio)
 		}
 	}
 
