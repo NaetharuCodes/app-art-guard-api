@@ -103,3 +103,38 @@ func (h *PortfolioHandler) AddToPortfolio(c *gin.Context) {
 		"portfolio_item": portfolioItem,
 	})
 }
+
+// REMOVE FROM PORTFOLIO
+// =====================
+func (h *PortfolioHandler) RemoveFromPortfolio(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	portfolioID := c.Param("id")
+
+	// Find the portfolio item to ensure it belongs to this user
+	var portfolioItem models.Portfolio
+	err := h.DB.Where("id = ? AND user_id = ?", portfolioID, userID).First(&portfolioItem).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Portfolio item not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		}
+		return
+	}
+
+	// Delete the portfolio item
+	err = h.DB.Delete(&portfolioItem).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove from portfolio"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Removed from portfolio successfully",
+	})
+}
